@@ -1,0 +1,54 @@
+// // Import the functions you need from the SDKs you need
+// import { initializeApp } from "firebase/app";
+// import { getAnalytics } from "firebase/analytics";
+// import { getAuth, GoogleAuthProvider } from "firebase/auth";
+// import { getFirestore } from "firebase/firestore";
+
+// // TODO: Add SDKs for Firebase products that you want to use
+// // https://firebase.google.com/docs/web/setup#available-libraries
+
+// // Your web app's Firebase configuration
+// // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// const firebaseConfig = {
+//   apiKey: process.env.FIREBASE_API_KEY,
+//   authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+//   projectId: process.env.FIREBASE_PROJECT_ID,
+//   storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+//   messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+//   appId: process.env.FIREBASE_APP_ID,
+//   measurementId: process.env.FIREBASE_MEASUREMENT_ID
+// };
+
+// // Initialize Firebase
+// const app = initializeApp(firebaseConfig);
+// const analytics = getAnalytics(app);
+
+// export const auth = getAuth(app);
+// export const googleProvider = new GoogleAuthProvider();
+// export const db = getFirestore(app);
+
+import admin from "firebase-admin";
+import path from "path";
+
+// Determine the path to the Firebase service account key
+// If the environment variable GOOGLE_APPLICATION_CREDENTIALS is set,
+// use that path; otherwise, fall back to a local JSON file
+const keyPath =
+  process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+  path.join(__dirname, "../../serviceAccountKey.json");
+
+// Load the service account credentials dynamically
+const serviceAccount = require(path.resolve(keyPath));
+
+// Initialize the Firebase Admin SDK using the service account credentials
+// This grants the server full administrative access to Firebase services
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+// Export Firestore and Auth instances to use across the backend
+export const db = admin.firestore();
+export const auth = admin.auth();
+
+// Export the entire admin instance for flexibility
+export default admin;
