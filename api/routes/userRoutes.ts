@@ -109,7 +109,7 @@ router.delete("/me", authenticateToken, (req, res) => UserController.deleteLogge
  * @returns {object} 404 - User not found.
  * @returns {object} 500 - Unexpected server error.
  */
-//router.patch('/change-password', authenticateToken, (req, res) => UserController.changePassword(req, res));
+router.patch('/change-password', authenticateToken, (req, res) => UserController.changePassword(req, res));
 
 /**
  * @route GET /users/me
@@ -118,7 +118,7 @@ router.delete("/me", authenticateToken, (req, res) => UserController.deleteLogge
  * @access Public
  */
 
-//router.get('/me', authenticateToken, (req, res) => UserController.getLoggedUser(req, res));
+router.get('/me', authenticateToken, (req, res) => UserController.getLoggedUser(req, res));
 
 /**
  * @route GET /check-token

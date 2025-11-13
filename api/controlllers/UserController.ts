@@ -479,53 +479,53 @@ class UserController {
      * @throws {400} If password validation fails.
      * @throws {500} If an unexpected server error occurs.
      */
-  // async changePassword(req: Request, res: Response): Promise<void> {
-  //   try {
-  //     const authReq = req as Request & { userId?: string };
-  //     const userId = authReq.userId;
+  async changePassword(req: Request, res: Response): Promise<void> {
+    try {
+      const authReq = req as Request & { userId?: string };
+      const userId = authReq.userId;
 
-  //     if (!userId) {
-  //       res.status(401).json({ message: "No se proporcionó un token" });
-  //       return;
-  //     }
+      if (!userId) {
+        res.status(401).json({ message: "No se proporcionó un token" });
+        return;
+      }
 
-  //     const user = await UserDAO.getById(userId);
-  //     if (!user) {
-  //       res.status(404).json({ message: "Usuario no encontrado" });
-  //       return;
-  //     }
+      const user = await UserDAO.getById(userId);
+      if (!user) {
+        res.status(404).json({ message: "Usuario no encontrado" });
+        return;
+      }
 
-  //     // Verify current password
-  //     const passwordMatch = await bcrypt.compare(req.body.currentPassword, user.password as string);
-  //     if (!passwordMatch) {
-  //       res.status(401).json({ message: "La contraseña actual es incorrecta" });
-  //       return;
-  //     }
+      // Verify current password
+      const passwordMatch = await bcrypt.compare(req.body.currentPassword, user.password as string);
+      if (!passwordMatch) {
+        res.status(401).json({ message: "La contraseña actual es incorrecta" });
+        return;
+      }
 
-  //     // Validate new password and confirmPassword match
-  //     const passwordError = this.passwordValidation(req);
-  //     if (passwordError) {
-  //       res.status(400).json({ message: passwordError });
-  //       return;
-  //     }
+      // Validate new password and confirmPassword match
+      const passwordError = this.passwordValidation(req);
+      if (passwordError) {
+        res.status(400).json({ message: passwordError });
+        return;
+      }
 
-  //     // Hash the new password
-  //     const hashedPassword = await bcrypt.hash(req.body.password, 10);
-  //     user.password = hashedPassword;
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(req.body.password, 10);
+      user.password = hashedPassword;
 
-  //     // Update the user in the database
-  //     await UserDAO.update(user.uid as string, user);
+      // Update the user in the database
+      await UserDAO.update(user.uid as string, user);
 
-  //     res.status(200).json({ message: "Contraseña cambiada exitosamente" });
+      res.status(200).json({ message: "Contraseña cambiada exitosamente" });
 
-  //   } catch (error: any) {
-  //     // Show detailed error only in development
-  //     if (process.env.NODE_ENV === "development") {
-  //       console.error(error);
-  //     }
-  //     res.status(500).json({ message: "Error al cambiar la contraseña" });
-  //   }
-  // }
+    } catch (error: any) {
+      // Show detailed error only in development
+      if (process.env.NODE_ENV === "development") {
+        console.error(error);
+      }
+      res.status(500).json({ message: "Error al cambiar la contraseña" });
+    }
+  }
 
   /**
     * Gets the information of the currently authenticated user.
@@ -534,36 +534,38 @@ class UserController {
     * @param {Object} req - Express request object.
     * @param {Object} res - Express response object.
     */
-  // async getLoggedUser(req: Request, res: Response): Promise<void> {
-  //   try {
-  //     const authReq = req as Request & { userId?: string };
-  //     const userId = authReq.userId;
+  async getLoggedUser(req: Request, res: Response): Promise<void> {
+    try {
+      const authReq = req as Request & { userId?: string };
+      const userId = authReq.userId;
 
-  //     if (!userId) {
-  //       res.status(401).json({ message: "No se proporcionó un token" });
-  //       return;
-  //     }
+      if (!userId) {
+        res.status(401).json({ message: "No se proporcionó un token" });
+        return;
+      }
 
-  //     const user = await UserDAO.getById(userId);
-  //     if (!user) {
-  //       res.status(404).json({ message: "User not found" });
-  //       return;
-  //     }
+      const user = await UserDAO.getById(userId);
+      if (!user) {
+        res.status(404).json({ message: "User not found" });
+        return;
+      }
 
-  //     const { password, resetPasswordToken, resetPasswordExpires, ...safe } =
-  //       user.toObject ? user.toObject() : user;
-
-  //     res.status(200).json({
-  //       user: {
-  //         id: safe._id,
-  //         ...safe
-  //       }
-  //     });
-  //   } catch (error: any) {
-  //     console.error(error);
-  //     res.status(500).json({ message: "Error getting user information" });
-  //   }
-  // }
+      res.status(200).json({
+        user: {
+          id: user.uid,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          age: user.age,
+          email: user.email,
+          role: user.role,
+          isActive: user.isActive,
+        }
+      });
+    } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ message: "Error getting user information" });
+    }
+  }
 }
 
 export default new UserController();
