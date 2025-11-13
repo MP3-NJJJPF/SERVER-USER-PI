@@ -1,99 +1,109 @@
-import {
-    addDoc,
-    collection,
-    deleteDoc,
-    doc,
-    getDoc,
-    updateDoc,
-    serverTimestamp,
-} from "firebase/firestore";
-import type {
-    CollectionReference,
-    Timestamp,
-} from "firebase/firestore";
-import { db } from "../lib/firebase.config";
+import { auth } from "../config/firebase.config";
+import GlobalDAO from "./GlobalDAO";
+import { IUser, IUserCreate } from "../models/User";
 
-export interface User {
-    displayName?: string | null;
-    email?: string | null;
-    photoURL?: string | null;
-    createdAt?: Timestamp | null;
-    updatedAt?: Timestamp | null;
-}
-export type UserCreate = Omit<User, "id" | "createdAt" | "updatedAt">;
-export type UserUpdate = Partial<Omit<User, "id" | "createdAt">>;
+class UserDAO extends GlobalDAO<IUser> {
+  constructor() {
+    super("users");
+  }
 
-class UserDAO {
-    private collectionRef: CollectionReference;
-    constructor() {
-        this.collectionRef = collection(db, "users");
+  /**
+   * Finds a user document by email address.
+   * @async
+   * @param emailToSearch - The email address to search for
+   * @returns The found user document or null if not found
+   */
+  async getUserByEmail(email: string): Promise<IUser | null> {
+    try {
+      // Search for the user in Firebase Auth
+      //const userRecord = await auth.getUserByEmail(email);
+
+      // Search for the corresponding document in Firestore (optional)
+      const snapshot = await this.collectionRef
+        .where("email", "==", email)
+        .limit(1)
+        .get();
+
+      if (snapshot.empty) {
+        return null;
+      }
+
+      const data = snapshot.docs[0].data() as IUser;
+
+      // Ensure UID exists (if not set, fallback to the document ID)
+      if (!data.uid) {
+        data.uid = snapshot.docs[0].id;
+      }
+
+      return data;
+    } catch (error: any) {
+      if (error.code === "auth/user-not-found") {
+        return null;
+      }
+      throw error;
     }
+  }
 
-    async getUserById(id: string): Promise<
-        | { success: true; data: User }
-        | { success: false; data: null; error?: string }
-    > {
-        try {
-            const snap = await getDoc(doc(this.collectionRef, id));
-            if (!snap.exists()) {
-                return { success: false, data: null };
-            }
-            return { success: true, data: snap.data() };
-        } catch (err: any) {
-            console.error("Error getting document:", err);
-            return { success: false, data: null, error: err?.message };
+  /**
+ * Finds a user document by email and reset token, ensuring token is not expired.
+ * @async
+ * @param email - The user's email
+ * @param token - The reset token
+ * @returns The found user document or null if not found or expired
+ */
+  /**
+ * Finds a user document by email and reset token, ensuring token is not expired.
+ * @async
+ * @param email - The user's email
+ * @param token - The reset token
+ * @returns The found user document or null if not found or expired
+ */
+  async readByResetToken(email: string, token: string): Promise<IUser | null> {
+    try {
+      // Search for the user document with matching email and reset token
+      const snapshot = await this.collectionRef
+        .where("email", "==", email)
+        .where("resetPasswordToken", "==", token)
+        .limit(1)
+        .get();
+
+      if (snapshot.empty) {
+        console.log(" No user found with given email and token");
+        return null;
+      }
+
+      const userDoc = snapshot.docs[0];
+      const data = userDoc.data() as IUser;
+
+      // Verify that the token is not expired
+      if (data.resetPasswordExpires) {
+        // Convert Firestore Timestamp to Date if necessary
+        const expiresDate =
+          data.resetPasswordExpires instanceof Date
+            ? data.resetPasswordExpires
+            : (data.resetPasswordExpires as any).toDate();
+
+        if (expiresDate.getTime() < Date.now()) {
+          console.warn(` Reset token expired for user: ${email}`);
+          return null;
         }
-    }
+      } else {
+        console.warn(` No expiration date set for token of user: ${email}`);
+        return null;
+      }
 
-    async createUser(userData: UserCreate): Promise<
-        | { success: true; id: string }
-        | { success: false; error: string }
-    > {
-        try {
-            const docRef = await addDoc(this.collectionRef, {
-                ...userData,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-            } as User);
-            console.log("Document written with ID:", docRef.id);
-            return { success: true, id: docRef.id };
-        } catch (err: any) {
-            console.error("Error adding document:", err);
-            return { success: false, error: err?.message ?? "Unknown error" };
-        }
-    }
+      // If the user does not have a UID, assign the document ID
+      if (!data.uid) {
+        data.uid = userDoc.id;
+      }
 
-    async updateUser(id: string, userData: UserUpdate): Promise<
-        | { success: true }
-        | { success: false; error: string }
-    > {
-        try {
-            const userRef = doc(this.collectionRef, id);
-            await updateDoc(userRef, {
-                ...userData,
-                updatedAt: serverTimestamp(),
-            } as Partial<User>);
-            console.log("Document successfully updated!");
-            return { success: true };
-        } catch (err: any) {
-            console.error("Error updating document:", err);
-            return { success: false, error: err?.message ?? "Unknown error" };
-        }
+      return data;
+    } catch (error: any) {
+      console.error(" Error reading user by reset token:", error);
+      throw new Error(`Error fetching user by reset token: ${error.message}`);
     }
+  }
 
-    async deleteUser(id: string): Promise<
-        | { success: true }
-        | { success: false; error: string }
-    > {
-        try {
-            await deleteDoc(doc(this.collectionRef, id));
-            console.log("Document successfully deleted!");
-            return { success: true };
-        } catch (err: any) {
-            console.error("Error removing document:", err);
-            return { success: false, error: err?.message ?? "Unknown error" };
-        }
-    }
 }
 
 export default new UserDAO();

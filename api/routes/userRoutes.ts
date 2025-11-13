@@ -1,8 +1,8 @@
 import express from "express";
-import UserController from "../controllers/UserController";
-import User from "../models/User";
+import UserController from "../controlllers/UserController";
+//import User from "../models/User";
 import loginLimiter from "../middlewares/limiterMiddleware";
-import authenticateToken from "../middlewares/authMiddleware";
+//import authenticateToken from "../middlewares/authMiddleware";
 const router = express.Router();
 
 /**
@@ -64,7 +64,7 @@ router.post("/reset-password", (req, res) => UserController.resetPassword(req, r
  * @description Retrieve all users.
  * @access Public
  */
-router.get("/", (req, res) => UserController.getAll(req, res));
+//router.get("/", (req, res) => UserController.getAll(req, res));
 
 /**
  * @route GET /users/me
@@ -73,7 +73,7 @@ router.get("/", (req, res) => UserController.getAll(req, res));
  * @access Public
  */
 
-router.get('/me', authenticateToken, (req, res) => UserController.getLoggedUser(req, res));
+//router.get('/me', authenticateToken, (req, res) => UserController.getLoggedUser(req, res));
 
 /**
  * @route PUT /users/edit-me
@@ -86,7 +86,7 @@ router.get('/me', authenticateToken, (req, res) => UserController.getLoggedUser(
  * @access Public
  */
 
-router.put('/edit-me', authenticateToken, (req, res) => UserController.editLoggedUser(req, res));
+//router.put('/edit-me', authenticateToken, (req, res) => UserController.editLoggedUser(req, res));
 
 /**
  * @route GET /check-token
@@ -96,9 +96,9 @@ router.put('/edit-me', authenticateToken, (req, res) => UserController.editLogge
  * @returns {object} 200 - Devuelve un mensaje confirmando que el token es válido.
  */
 
-router.get("/check-token", authenticateToken, (req, res) => {
-    res.status(200).json({ message: "Token valido" });
-});
+//router.get("/check-token", authenticateToken, (req, res) => {
+//    res.status(200).json({ message: "Token valido" });
+//});
 
 /**
  * @route DELETE /me
@@ -112,11 +112,11 @@ router.get("/check-token", authenticateToken, (req, res) => {
  * @returns {object} 404 - Si el usuario no existe.
  */
 
-router.delete("/me", authenticateToken, (req, res) => UserController.deleteLoggedUser(req, res));
+//router.delete("/me", authenticateToken, (req, res) => UserController.deleteLoggedUser(req, res));
 
 
 
-router.patch('/change-password', authenticateToken, (req, res) => UserController.changePassword(req, res));
+//router.patch('/change-password', authenticateToken, (req, res) => UserController.changePassword(req, res));
 
 
 /**
