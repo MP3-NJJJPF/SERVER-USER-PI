@@ -2,7 +2,7 @@ import express from "express";
 import UserController from "../controlllers/UserController";
 //import User from "../models/User";
 import loginLimiter from "../middlewares/limiterMiddleware";
-//import authenticateToken from "../middlewares/authMiddleware";
+import authenticateToken from "../middlewares/authMiddleware";
 const router = express.Router();
 
 /**
@@ -64,16 +64,7 @@ router.post("/reset-password", (req, res) => UserController.resetPassword(req, r
  * @description Retrieve all users.
  * @access Public
  */
-//router.get("/", (req, res) => UserController.getAll(req, res));
-
-/**
- * @route GET /users/me
- * @description Get the logged-in user's details.
- * @returns 200 with the user's details.
- * @access Public
- */
-
-//router.get('/me', authenticateToken, (req, res) => UserController.getLoggedUser(req, res));
+router.get("/", (req, res) => UserController.getAll(req, res));
 
 /**
  * @route PUT /users/edit-me
@@ -86,19 +77,7 @@ router.post("/reset-password", (req, res) => UserController.resetPassword(req, r
  * @access Public
  */
 
-//router.put('/edit-me', authenticateToken, (req, res) => UserController.editLoggedUser(req, res));
-
-/**
- * @route GET /check-token
- * @description Verifica que el token JWT enviado sea válido.
- * @access Private (requiere autenticación con JWT)
- * @middleware authenticateToken - Middleware que valida el token y añade los datos del usuario a `req.user`.
- * @returns {object} 200 - Devuelve un mensaje confirmando que el token es válido.
- */
-
-//router.get("/check-token", authenticateToken, (req, res) => {
-//    res.status(200).json({ message: "Token valido" });
-//});
+router.put('/edit-me', authenticateToken, (req, res) => UserController.editLoggedUser(req, res));
 
 /**
  * @route DELETE /me
@@ -112,12 +91,46 @@ router.post("/reset-password", (req, res) => UserController.resetPassword(req, r
  * @returns {object} 404 - Si el usuario no existe.
  */
 
-//router.delete("/me", authenticateToken, (req, res) => UserController.deleteLoggedUser(req, res));
+router.delete("/me", authenticateToken, (req, res) => UserController.deleteLoggedUser(req, res));
 
-
-
+/**
+ * @route PATCH /change-password
+ * @description Updates (changes) the authenticated user's password after verifying their identity.
+ * @access Private (requires JWT authentication)
+ * @middleware authenticateToken - Middleware that validates the JWT token and attaches user data to `req.user`.
+ * 
+ * @body {string} currentPassword - The user's current password (required for verification).
+ * @body {string} password - The new password to be set.
+ * @body {string} confirmPassword - Confirmation of the new password (must match `password`).
+ * 
+ * @returns {object} 200 - Password successfully changed.
+ * @returns {object} 400 - Missing or invalid input fields.
+ * @returns {object} 401 - Invalid token or incorrect current password.
+ * @returns {object} 404 - User not found.
+ * @returns {object} 500 - Unexpected server error.
+ */
 //router.patch('/change-password', authenticateToken, (req, res) => UserController.changePassword(req, res));
 
+/**
+ * @route GET /users/me
+ * @description Get the logged-in user's details.
+ * @returns 200 with the user's details.
+ * @access Public
+ */
+
+//router.get('/me', authenticateToken, (req, res) => UserController.getLoggedUser(req, res));
+
+/**
+ * @route GET /check-token
+ * @description Verifica que el token JWT enviado sea válido.
+ * @access Private (requiere autenticación con JWT)
+ * @middleware authenticateToken - Middleware que valida el token y añade los datos del usuario a `req.user`.
+ * @returns {object} 200 - Devuelve un mensaje confirmando que el token es válido.
+ */
+
+router.get("/check-token", authenticateToken, (req, res) => {
+    res.status(200).json({ message: "Token valido" });
+});
 
 /**
  * Export the router instance to be mounted in the main routes file.

@@ -328,6 +328,242 @@ class UserController {
       res.status(500).json({ message: "Inténtalo de nuevo más tarde" });
     }
   }
+
+  /**
+      * Retrieves all resources, optionally filtered by query parameters.
+      * @async
+      * @param {Object} req - Express request object
+      * @param {Object} res - Express response object
+      * @returns {void}
+    */
+  async getAll(req: Request, res: Response): Promise<void> {
+    try {
+      const items = await UserDAO.getAll();
+      res.status(200).json(items);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  }
+
+  /** Edits the information of the currently authenticated user.
+     * Allows updating fields like firstName, lastName, age, and email.
+     * Requires a valid JWT token for authentication.
+     * @param {Object} req - Express request object.
+     * @param {Object} res - Express response object.
+     * @returns {Promise<void>} Sends a response indicating success or an error message.
+     */
+  async editLoggedUser(req: Request, res: Response): Promise<void> {
+    try {
+      const authReq = req as Request & { userId?: string }; // Extend the request type to include userId
+      const userId = authReq.userId;
+
+      if (!userId) {
+        res.status(401).json({ message: "No token provided" });
+        return;
+      }
+
+      const user = await UserDAO.getById(userId);
+      if (!user) {
+        res.status(404).json({ message: "User not found" });
+        return;
+      }
+
+      const allowedFields = ["firstName", "lastName", "age", "email"];
+      const updates = Object.fromEntries(
+        allowedFields
+          .filter(field => req.body[field] !== undefined)
+          .map(field => [field, req.body[field]])
+      );
+
+      Object.assign(user, updates);
+      await UserDAO.update(user.uid as string, user);
+
+      res.status(200).json({ message: "User information updated successfully" });
+
+    } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ message: "Error getting user information" });
+    }
+  }
+
+  /**
+    * Deletes the currently authenticated user after verifying their password.
+    *
+    * @async
+    * @function deleteLoggedUser
+    * @memberof UserController
+    * @description
+    * - Validates the JWT token from the request to identify the user.
+    * - Verifies the provided password matches the user's stored password.
+    * - Deletes all tasks associated with the user.
+    * - Deletes the user account from the database.
+    * - Clears the authentication cookie.
+    *
+    * @param {import('express').Request} req - Express request object.
+    * @param {import('express').Response} res - Express response object.
+    *
+    * @body {string} password - The current password of the user to confirm account deletion.
+    *
+    * @returns {Promise<void>}
+    * @throws {401} If no token is provided or if the password is incorrect.
+    * @throws {404} If the user is not found.
+    * @throws {500} If an unexpected server error occurs.
+    */
+  async deleteLoggedUser(req: Request, res: Response): Promise<void> {
+    try {
+      const authReq = req as Request & { userId?: string }; // Extend the request type to include userId
+      const userId = authReq.userId;
+
+      if (!userId) {
+        res.status(401).json({ message: "No token provided" });
+        return;
+      }
+
+      const user = await UserDAO.getById(userId);
+      if (!user) {
+        res.status(404).json({ message: "Usuario no encontrado" });
+        return;
+      }
+
+      const passwordMatch = await bcrypt.compare(req.body.password, user.password as string);
+      if (!passwordMatch) {
+        res.status(401).json({ message: "Contraseña incorrecta" });
+        return;
+      }
+
+      //await TaskDAO.deleteByUserId(user._id);
+      await UserDAO.delete(user.uid as string);
+
+      // Define secure type to process.env.JWT_SECRET
+      const COOKIE_CONTROL = process.env.COOKIE_CONTROL as string;
+      if (!COOKIE_CONTROL) {
+        throw new Error("COOKIE_CONTROL no está definido en las variables de entorno");
+      }
+
+      res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: COOKIE_CONTROL as "none" | "lax" | "strict",
+      });
+
+      res.status(200).json({ message: "Usuario eliminado" });
+
+    } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ message: "Error al eliminar el usuario" });
+    }
+  }
+
+  /**
+     * Changes the password of the currently authenticated user.
+     *
+     * @async
+     * @function changePassword
+     * @memberof UserController
+     * @description
+     * - Validates the JWT token from the request to identify the user.
+     * - Verifies the current password matches the user's stored password.
+     * - Validates the new password meets security requirements.
+     * - Hashes and updates the new password in the database.
+     *
+     * @param {import('express').Request} req - Express request object.
+     * @param {import('express').Response} res - Express response object.
+     *
+     * @body {string} currentPassword - The user's current password for verification.
+     * @body {string} password - The new password to set.
+     * @body {string} confirmPassword - Confirmation of the new password.
+     *
+     * @returns {Promise<void>}
+     * @throws {401} If no token is provided or if the current password is incorrect.
+     * @throws {404} If the user is not found.
+     * @throws {400} If password validation fails.
+     * @throws {500} If an unexpected server error occurs.
+     */
+  // async changePassword(req: Request, res: Response): Promise<void> {
+  //   try {
+  //     const authReq = req as Request & { userId?: string };
+  //     const userId = authReq.userId;
+
+  //     if (!userId) {
+  //       res.status(401).json({ message: "No se proporcionó un token" });
+  //       return;
+  //     }
+
+  //     const user = await UserDAO.getById(userId);
+  //     if (!user) {
+  //       res.status(404).json({ message: "Usuario no encontrado" });
+  //       return;
+  //     }
+
+  //     // Verify current password
+  //     const passwordMatch = await bcrypt.compare(req.body.currentPassword, user.password as string);
+  //     if (!passwordMatch) {
+  //       res.status(401).json({ message: "La contraseña actual es incorrecta" });
+  //       return;
+  //     }
+
+  //     // Validate new password and confirmPassword match
+  //     const passwordError = this.passwordValidation(req);
+  //     if (passwordError) {
+  //       res.status(400).json({ message: passwordError });
+  //       return;
+  //     }
+
+  //     // Hash the new password
+  //     const hashedPassword = await bcrypt.hash(req.body.password, 10);
+  //     user.password = hashedPassword;
+
+  //     // Update the user in the database
+  //     await UserDAO.update(user.uid as string, user);
+
+  //     res.status(200).json({ message: "Contraseña cambiada exitosamente" });
+
+  //   } catch (error: any) {
+  //     // Show detailed error only in development
+  //     if (process.env.NODE_ENV === "development") {
+  //       console.error(error);
+  //     }
+  //     res.status(500).json({ message: "Error al cambiar la contraseña" });
+  //   }
+  // }
+
+  /**
+    * Gets the information of the currently authenticated user.
+    *
+    * - Validates the JWT token from the request to identify the user.
+    * @param {Object} req - Express request object.
+    * @param {Object} res - Express response object.
+    */
+  // async getLoggedUser(req: Request, res: Response): Promise<void> {
+  //   try {
+  //     const authReq = req as Request & { userId?: string };
+  //     const userId = authReq.userId;
+
+  //     if (!userId) {
+  //       res.status(401).json({ message: "No se proporcionó un token" });
+  //       return;
+  //     }
+
+  //     const user = await UserDAO.getById(userId);
+  //     if (!user) {
+  //       res.status(404).json({ message: "User not found" });
+  //       return;
+  //     }
+
+  //     const { password, resetPasswordToken, resetPasswordExpires, ...safe } =
+  //       user.toObject ? user.toObject() : user;
+
+  //     res.status(200).json({
+  //       user: {
+  //         id: safe._id,
+  //         ...safe
+  //       }
+  //     });
+  //   } catch (error: any) {
+  //     console.error(error);
+  //     res.status(500).json({ message: "Error getting user information" });
+  //   }
+  // }
 }
 
 export default new UserController();
