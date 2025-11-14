@@ -46,7 +46,7 @@ class UserController {
 
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // 5Crear usuario en Firestore
+      // Create user in Firestore database
       const newUser: IUserCreate = {
         firstName,
         lastName,
@@ -564,6 +564,140 @@ class UserController {
     } catch (error: any) {
       console.error(error);
       res.status(500).json({ message: "Error getting user information" });
+    }
+  }
+
+  async googleLogin(req: Request, res: Response): Promise<void> {
+    const firebaseUser = (req as any).user;
+    const { email, name, uid } = firebaseUser;
+
+    // 1) Search if the email exists and take the user
+    const user = await UserDAO.getUserByEmail(email);
+
+    // 2) If user does not exist, respond with incomplete_profile status
+    if (!user) {
+      res.json({
+        status: "incomplete_profile",
+        email: email,
+        userid: uid
+      });
+      return;
+    }
+
+    // 3) If user exists, log them in (create JWT and send cookie)
+
+    // Define secure type to process.env.JWT_SECRET
+    const jwtSecret = process.env.JWT_SECRET as string;
+    if (!jwtSecret) {
+      throw new Error("JWT_SECRET no está definido en las variables de entorno");
+    }
+
+    // Generate a JWT token, with the structure: sign(payload (data), secret (to sign), options)
+    const token = jwt.sign(
+      {
+        userId: user.uid
+      },
+      jwtSecret,
+      { expiresIn: '2h' }
+    );
+
+    // Define secure type to process.env.JWT_SECRET
+    const COOKIE_CONTROL = process.env.COOKIE_CONTROL as string;
+    if (!COOKIE_CONTROL) {
+      throw new Error("COOKIE_CONTROL no está definido en las variables de entorno");
+    }
+
+    // Send the token in a HTTP-only cookie
+    res.cookie('token', token,
+      {
+        httpOnly: true, // JavaScript cannot access this cookie for the side of the client
+        secure: process.env.NODE_ENV === 'production', // Only be sent via HTTPS
+        sameSite: COOKIE_CONTROL as "none" | "lax" | "strict", // Allows cross-origin cookies; reduces CSRF protection. Use only if cross-site requests are required.
+        maxAge: 2 * 60 * 60 * 1000 // 2 hours in milliseconds
+      }
+    );
+
+    // Successful login
+    res.status(200).json({ message: "Login successful with google", id: user.uid, email: user.email });
+  }
+
+  async googleRegister(req: Request, res: Response): Promise<void> {
+    try {
+      // Take user data from request body
+      const { email, password, confirmPassword, firstName, lastName, age } = req.body;
+
+      // Validate password and confirmPassword match
+      const passwordError = this.passwordValidation(req);
+      if (passwordError) {
+        res.status(400).json({ message: passwordError });
+        return;
+      }
+
+      // Check if the email already exists
+      const existingUser = await UserDAO.getUserByEmail(req.body.email);
+      if (existingUser) {
+        res.status(409).json({ message: "Correo electrónico ya en uso" });
+        return;
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create user in Firestore database
+      const newUser: IUserCreate = {
+        firstName,
+        lastName,
+        age,
+        email,
+        password: hashedPassword,
+        role: "user",
+        isActive: true,
+      };
+
+      const userId = await UserDAO.create(newUser);
+
+      const user = await UserDAO.getById(userId);
+      if (!user) {
+        res.status(401).json({ message: "Id no válido" });
+        return;
+      }
+
+      // Define secure type to process.env.JWT_SECRET
+      const jwtSecret = process.env.JWT_SECRET as string;
+      if (!jwtSecret) {
+        throw new Error("JWT_SECRET no está definido en las variables de entorno");
+      }
+
+      // Generate a JWT token, with the structure: sign(payload (data), secret (to sign), options)
+      const token = jwt.sign(
+        {
+          userId: user.uid
+        },
+        jwtSecret,
+        { expiresIn: '2h' }
+      );
+
+      // Define secure type to process.env.JWT_SECRET
+      const COOKIE_CONTROL = process.env.COOKIE_CONTROL as string;
+      if (!COOKIE_CONTROL) {
+        throw new Error("COOKIE_CONTROL no está definido en las variables de entorno");
+      }
+
+      // Send the token in a HTTP-only cookie
+      res.cookie('token', token,
+        {
+          httpOnly: true, // JavaScript cannot access this cookie for the side of the client
+          secure: process.env.NODE_ENV === 'production', // Only be sent via HTTPS
+          sameSite: COOKIE_CONTROL as "none" | "lax" | "strict", // Allows cross-origin cookies; reduces CSRF protection. Use only if cross-site requests are required.
+          maxAge: 2 * 60 * 60 * 1000 // 2 hours in milliseconds
+        }
+      );
+      res.status(201).json({ message: "Usuario registrado correctamente.", id: userId });
+    } catch (error: any) {
+      // Show detailed error only in development
+      if (process.env.NODE_ENV === "development") {
+        console.error(error);
+      }
+      res.status(500).json({ message: "Internal Server Error" });
     }
   }
 }
