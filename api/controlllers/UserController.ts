@@ -582,57 +582,66 @@ class UserController {
   * @returns {Promise<void>} Resolves when the response has been sent
   */
   async googleLogin(req: Request, res: Response): Promise<void> {
-    const firebaseUser = (req as any).user;
-    const { email, name, uid } = firebaseUser;
+    try {
+      const firebaseUser = (req as any).user;
+      const { email, name, uid } = firebaseUser;
 
-    // 1) Search if the email exists and take the user
-    const user = await UserDAO.getUserByEmail(email);
+      // 1) Search if the email exists and take the user
+      const user = await UserDAO.getUserByEmail(email);
 
-    // 2) If user does not exist, respond with incomplete_profile status
-    if (!user) {
-      res.json({
-        status: "incomplete_profile",
-        email: email,
-        userid: uid
-      });
-      return;
-    }
-
-    // 3) If user exists, log them in (create JWT and send cookie)
-
-    // Define secure type to process.env.JWT_SECRET
-    const jwtSecret = process.env.JWT_SECRET as string;
-    if (!jwtSecret) {
-      throw new Error("JWT_SECRET no está definido en las variables de entorno");
-    }
-
-    // Generate a JWT token, with the structure: sign(payload (data), secret (to sign), options)
-    const token = jwt.sign(
-      {
-        userId: user.uid
-      },
-      jwtSecret,
-      { expiresIn: '2h' }
-    );
-
-    // Define secure type to process.env.JWT_SECRET
-    const COOKIE_CONTROL = process.env.COOKIE_CONTROL as string;
-    if (!COOKIE_CONTROL) {
-      throw new Error("COOKIE_CONTROL no está definido en las variables de entorno");
-    }
-
-    // Send the token in a HTTP-only cookie
-    res.cookie('token', token,
-      {
-        httpOnly: true, // JavaScript cannot access this cookie for the side of the client
-        secure: process.env.NODE_ENV === 'production', // Only be sent via HTTPS
-        sameSite: COOKIE_CONTROL as "none" | "lax" | "strict", // Allows cross-origin cookies; reduces CSRF protection. Use only if cross-site requests are required.
-        maxAge: 2 * 60 * 60 * 1000 // 2 hours in milliseconds
+      // 2) If user does not exist, respond with incomplete_profile status
+      if (!user) {
+        res.json({
+          status: "incomplete_profile",
+          email: email,
+          userid: uid
+        });
+        return;
       }
-    );
 
-    // Successful login
-    res.status(200).json({ message: "Login successful with google", id: user.uid, email: user.email });
+      // 3) If user exists, log them in (create JWT and send cookie)
+
+      // Define secure type to process.env.JWT_SECRET
+      const jwtSecret = process.env.JWT_SECRET as string;
+      if (!jwtSecret) {
+        throw new Error("JWT_SECRET no está definido en las variables de entorno");
+      }
+
+      // Generate a JWT token, with the structure: sign(payload (data), secret (to sign), options)
+      const token = jwt.sign(
+        {
+          userId: user.uid
+        },
+        jwtSecret,
+        { expiresIn: '2h' }
+      );
+
+      // Define secure type to process.env.JWT_SECRET
+      const COOKIE_CONTROL = process.env.COOKIE_CONTROL as string;
+      if (!COOKIE_CONTROL) {
+        throw new Error("COOKIE_CONTROL no está definido en las variables de entorno");
+      }
+
+      // Send the token in a HTTP-only cookie
+      res.cookie('token', token,
+        {
+          httpOnly: true, // JavaScript cannot access this cookie for the side of the client
+          secure: process.env.NODE_ENV === 'production', // Only be sent via HTTPS
+          sameSite: COOKIE_CONTROL as "none" | "lax" | "strict", // Allows cross-origin cookies; reduces CSRF protection. Use only if cross-site requests are required.
+          maxAge: 2 * 60 * 60 * 1000 // 2 hours in milliseconds
+        }
+      );
+
+      // Successful login
+      res.status(200).json({ message: "Login successful with google", id: user.uid, email: user.email });
+
+    } catch (error: any) {
+      // Show detailed error only in development
+      if (process.env.NODE_ENV === "development") {
+        console.error(error);
+      }
+      res.status(500).json({ message: "Internal Server Error" });
+    }
   }
 
   /**
@@ -732,7 +741,7 @@ class UserController {
           maxAge: 2 * 60 * 60 * 1000 // 2 hours in milliseconds
         }
       );
-      
+
       res.status(201).json({ message: "Usuario registrado correctamente.", id: userId });
     } catch (error: any) {
       // Show detailed error only in development
