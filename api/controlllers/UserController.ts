@@ -567,6 +567,20 @@ class UserController {
     }
   }
 
+  /**
+  * Manage the Google OAuth login flow for existing users or flag an incomplete profile for new users.
+  * 
+  * This method performs the following steps:
+  * 1. Extracts Firebase user information from the authenticated request
+  * 2. Checks if a user with the given email exists in the database
+  * 3. If user doesn't exist, returns incomplete_profile status for registration completion
+  * 4. If user exists, generates a JWT token and sets it as an HTTP-only cookie
+  * 
+  * @async
+  * @param {Request} req - Express request object containing Firebase authenticated user data
+  * @param {Response} res - Express response object used to send the login result
+  * @returns {Promise<void>} Resolves when the response has been sent
+  */
   async googleLogin(req: Request, res: Response): Promise<void> {
     const firebaseUser = (req as any).user;
     const { email, name, uid } = firebaseUser;
@@ -621,6 +635,31 @@ class UserController {
     res.status(200).json({ message: "Login successful with google", id: user.uid, email: user.email });
   }
 
+  /**
+  * Manage user registration via Google OAuth with additional profile information and apply a login.
+  * 
+  * This method performs the following steps:
+  * 1. Validates that passwords match using passwordValidation helper
+  * 2. Checks if the email is already registered in the database
+  * 3. Hashes the password using bcrypt
+  * 4. Creates a new user record in Firestore
+  * 5. Generates a JWT token and sets it as an HTTP-only cookie
+  * 6. Returns success response with the new user ID
+  * 
+  * @async
+  * @param {Request} req - Express request object containing user registration data in body
+  * @param {Request} req.body.email - User's email address
+  * @param {Request} req.body.password - User's chosen password
+  * @param {Request} req.body.confirmPassword - Password confirmation for validation
+  * @param {Request} req.body.firstName - User's first name
+  * @param {Request} req.body.lastName - User's last name
+  * @param {Request} req.body.age - User's age
+  * @param {Response} res - Express response object used to send the registration result
+  * @returns {Promise<void>} Resolves when the response has been sent
+  * 
+  * @throws {Error} If JWT_SECRET environment variable is not defined
+  * @throws {Error} If COOKIE_CONTROL environment variable is not defined
+  */
   async googleRegister(req: Request, res: Response): Promise<void> {
     try {
       // Take user data from request body
@@ -653,8 +692,10 @@ class UserController {
         isActive: true,
       };
 
+      // Save the new user to Firestore and get the generated user ID
       const userId = await UserDAO.create(newUser);
 
+      // Retrieve the newly created user to verify creation
       const user = await UserDAO.getById(userId);
       if (!user) {
         res.status(401).json({ message: "Id no válido" });
@@ -691,6 +732,7 @@ class UserController {
           maxAge: 2 * 60 * 60 * 1000 // 2 hours in milliseconds
         }
       );
+      
       res.status(201).json({ message: "Usuario registrado correctamente.", id: userId });
     } catch (error: any) {
       // Show detailed error only in development
