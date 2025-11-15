@@ -46,7 +46,7 @@ class UserController {
 
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // 5Crear usuario en Firestore
+      // Create user in Firestore database
       const newUser: IUserCreate = {
         firstName,
         lastName,
@@ -564,6 +564,191 @@ class UserController {
     } catch (error: any) {
       console.error(error);
       res.status(500).json({ message: "Error getting user information" });
+    }
+  }
+
+  /**
+  * Manage the Google OAuth login flow for existing users or flag an incomplete profile for new users.
+  * 
+  * This method performs the following steps:
+  * 1. Extracts Firebase user information from the authenticated request
+  * 2. Checks if a user with the given email exists in the database
+  * 3. If user doesn't exist, returns incomplete_profile status for registration completion
+  * 4. If user exists, generates a JWT token and sets it as an HTTP-only cookie
+  * 
+  * @async
+  * @param {Request} req - Express request object containing Firebase authenticated user data
+  * @param {Response} res - Express response object used to send the login result
+  * @returns {Promise<void>} Resolves when the response has been sent
+  */
+  async googleLogin(req: Request, res: Response): Promise<void> {
+    try {
+      const firebaseUser = (req as any).user;
+      const { email, name, uid } = firebaseUser;
+
+      // 1) Search if the email exists and take the user
+      const user = await UserDAO.getUserByEmail(email);
+
+      // 2) If user does not exist, respond with incomplete_profile status
+      if (!user) {
+        res.json({
+          status: "incomplete_profile",
+          email: email,
+          userid: uid
+        });
+        return;
+      }
+
+      // 3) If user exists, log them in (create JWT and send cookie)
+
+      // Define secure type to process.env.JWT_SECRET
+      const jwtSecret = process.env.JWT_SECRET as string;
+      if (!jwtSecret) {
+        throw new Error("JWT_SECRET no está definido en las variables de entorno");
+      }
+
+      // Generate a JWT token, with the structure: sign(payload (data), secret (to sign), options)
+      const token = jwt.sign(
+        {
+          userId: user.uid
+        },
+        jwtSecret,
+        { expiresIn: '2h' }
+      );
+
+      // Define secure type to process.env.JWT_SECRET
+      const COOKIE_CONTROL = process.env.COOKIE_CONTROL as string;
+      if (!COOKIE_CONTROL) {
+        throw new Error("COOKIE_CONTROL no está definido en las variables de entorno");
+      }
+
+      // Send the token in a HTTP-only cookie
+      res.cookie('token', token,
+        {
+          httpOnly: true, // JavaScript cannot access this cookie for the side of the client
+          secure: process.env.NODE_ENV === 'production', // Only be sent via HTTPS
+          sameSite: COOKIE_CONTROL as "none" | "lax" | "strict", // Allows cross-origin cookies; reduces CSRF protection. Use only if cross-site requests are required.
+          maxAge: 2 * 60 * 60 * 1000 // 2 hours in milliseconds
+        }
+      );
+
+      // Successful login
+      res.status(200).json({ message: "Login successful with google", id: user.uid, email: user.email });
+
+    } catch (error: any) {
+      // Show detailed error only in development
+      if (process.env.NODE_ENV === "development") {
+        console.error(error);
+      }
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  }
+
+  /**
+  * Manage user registration via Google OAuth with additional profile information and apply a login.
+  * 
+  * This method performs the following steps:
+  * 1. Validates that passwords match using passwordValidation helper
+  * 2. Checks if the email is already registered in the database
+  * 3. Hashes the password using bcrypt
+  * 4. Creates a new user record in Firestore
+  * 5. Generates a JWT token and sets it as an HTTP-only cookie
+  * 6. Returns success response with the new user ID
+  * 
+  * @async
+  * @param {Request} req - Express request object containing user registration data in body
+  * @param {Request} req.body.email - User's email address
+  * @param {Request} req.body.password - User's chosen password
+  * @param {Request} req.body.confirmPassword - Password confirmation for validation
+  * @param {Request} req.body.firstName - User's first name
+  * @param {Request} req.body.lastName - User's last name
+  * @param {Request} req.body.age - User's age
+  * @param {Response} res - Express response object used to send the registration result
+  * @returns {Promise<void>} Resolves when the response has been sent
+  * 
+  * @throws {Error} If JWT_SECRET environment variable is not defined
+  * @throws {Error} If COOKIE_CONTROL environment variable is not defined
+  */
+  async googleRegister(req: Request, res: Response): Promise<void> {
+    try {
+      // Take user data from request body
+      const { email, password, confirmPassword, firstName, lastName, age } = req.body;
+
+      // Validate password and confirmPassword match
+      const passwordError = this.passwordValidation(req);
+      if (passwordError) {
+        res.status(400).json({ message: passwordError });
+        return;
+      }
+
+      // Check if the email already exists
+      const existingUser = await UserDAO.getUserByEmail(req.body.email);
+      if (existingUser) {
+        res.status(409).json({ message: "Correo electrónico ya en uso" });
+        return;
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create user in Firestore database
+      const newUser: IUserCreate = {
+        firstName,
+        lastName,
+        age,
+        email,
+        password: hashedPassword,
+        role: "user",
+        isActive: true,
+      };
+
+      // Save the new user to Firestore and get the generated user ID
+      const userId = await UserDAO.create(newUser);
+
+      // Retrieve the newly created user to verify creation
+      const user = await UserDAO.getById(userId);
+      if (!user) {
+        res.status(401).json({ message: "Id no válido" });
+        return;
+      }
+
+      // Define secure type to process.env.JWT_SECRET
+      const jwtSecret = process.env.JWT_SECRET as string;
+      if (!jwtSecret) {
+        throw new Error("JWT_SECRET no está definido en las variables de entorno");
+      }
+
+      // Generate a JWT token, with the structure: sign(payload (data), secret (to sign), options)
+      const token = jwt.sign(
+        {
+          userId: user.uid
+        },
+        jwtSecret,
+        { expiresIn: '2h' }
+      );
+
+      // Define secure type to process.env.JWT_SECRET
+      const COOKIE_CONTROL = process.env.COOKIE_CONTROL as string;
+      if (!COOKIE_CONTROL) {
+        throw new Error("COOKIE_CONTROL no está definido en las variables de entorno");
+      }
+
+      // Send the token in a HTTP-only cookie
+      res.cookie('token', token,
+        {
+          httpOnly: true, // JavaScript cannot access this cookie for the side of the client
+          secure: process.env.NODE_ENV === 'production', // Only be sent via HTTPS
+          sameSite: COOKIE_CONTROL as "none" | "lax" | "strict", // Allows cross-origin cookies; reduces CSRF protection. Use only if cross-site requests are required.
+          maxAge: 2 * 60 * 60 * 1000 // 2 hours in milliseconds
+        }
+      );
+
+      res.status(201).json({ message: "Usuario registrado correctamente.", id: userId });
+    } catch (error: any) {
+      // Show detailed error only in development
+      if (process.env.NODE_ENV === "development") {
+        console.error(error);
+      }
+      res.status(500).json({ message: "Internal Server Error" });
     }
   }
 }

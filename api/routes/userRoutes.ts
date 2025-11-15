@@ -3,6 +3,7 @@ import UserController from "../controlllers/UserController";
 //import User from "../models/User";
 import loginLimiter from "../middlewares/limiterMiddleware";
 import authenticateToken from "../middlewares/authMiddleware";
+import { authenticateFirebase } from "../middlewares/authenticateFirebase";
 const router = express.Router();
 
 /**
@@ -129,8 +130,55 @@ router.get('/me', authenticateToken, (req, res) => UserController.getLoggedUser(
  */
 
 router.get("/check-token", authenticateToken, (req, res) => {
-    res.status(200).json({ message: "Token valido" });
+  res.status(200).json({ message: "Token valido" });
 });
+
+/**
+ * @route POST /google
+ * @description Manages the Google OAuth login flow. If the user exists in the database, 
+ * logs them in using a JWT cookie. If the user does not exist, returns an incomplete profile status to complete the registration.
+ * @access Private (requires Firebase Authentication)
+ * @middleware authenticateFirebase - Middleware that verifies Firebase ID token and attaches decoded user data to `req.user`
+ * @returns {object} 200 - Login successful with JWT cookie set
+ * @returns {object} 200 - incomplete_profile status if user needs to complete registration
+ * @example
+ * // Request headers
+ * Authorization: Bearer <firebase_id_token>
+ * 
+ * // Success response (existing user)
+ * {
+ *   "message": "Login successful with google",
+ * }
+ * 
+ * // Response (new user needs registration)
+ * {
+ *   "status": "incomplete_profile",
+ * }
+ */
+router.post("/google", authenticateFirebase, (req, res) => UserController.googleLogin(req, res));
+
+/**
+ * @route POST /complete-profile
+ * @description Completes Google OAuth registration for new users. Creates user account with additional 
+ * profile information after Firebase authentication. Automatically logs in user with JWT cookie.
+ * @access Private (requires Firebase Authentication)
+ * @middleware authenticateFirebase - Middleware that verifies Firebase ID token and attaches decoded user data to `req.user`
+ * @body {string} email - User's email address (from Google)
+ * @body {string} password - User's chosen password
+ * @body {string} confirmPassword - Password confirmation (must match password)
+ * @body {string} firstName - User's first name
+ * @body {string} lastName - User's last name
+ * @body {number} age - User's age
+ * @returns {object} 201 - User registered successfully with JWT cookie set
+ * @returns {object} 400 - Password validation error
+ * @returns {object} 409 - Email already in use
+ * @returns {object} 500 - Internal server error
+ * @example
+ * // Request headers
+ * Authorization: Bearer <firebase_id_token>
+ */
+router.post("/complete-profile", authenticateFirebase, (req, res) => UserController.googleRegister(req, res));
+
 
 /**
  * Export the router instance to be mounted in the main routes file.
