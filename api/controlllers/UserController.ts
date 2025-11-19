@@ -671,31 +671,50 @@ class UserController {
   */
   async googleRegister(req: Request, res: Response): Promise<void> {
     try {
-      // Take user data from request body
-      const { email, password, confirmPassword, firstName, lastName, age } = req.body;
+      const firebaseUser = (req as any).user;
+      const { email, name, uid } = firebaseUser;
 
-      // Validate password and confirmPassword match
-      const passwordError = this.passwordValidation(req);
-      if (passwordError) {
-        res.status(400).json({ message: passwordError });
+      // Take user data from request body
+      const { age } = req.body;
+      
+      // Validate required fields
+      if (!age) {
+        res.status(400).json({ error: "La edad es requerida" });
         return;
       }
 
+      if (!firebaseUser || !firebaseUser.email) {
+        res.status(400).json({ error: "Datos de Firebase inválidos" });
+        return;
+      }
+
+      // Normalize email
+      const normalizedEmail = email.trim().toLowerCase();
+
       // Check if the email already exists
-      const existingUser = await UserDAO.getUserByEmail(req.body.email);
+      const existingUser = await UserDAO.getUserByEmail(normalizedEmail);
       if (existingUser) {
         res.status(409).json({ message: "Correo electrónico ya en uso" });
         return;
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+      // Extract name from Firebase (handle cases where name might be empty)
+      const fullName = name || email.split("@")[0];
+      const nameParts = fullName.split(" ");
+      const firstName = nameParts[0] || "Usuario";
+      const lastName = nameParts.slice(1).join(" ") || "Google";
+
+      // Generate a random password
+      const randomPassword = Math.random().toString(36).slice(-16) + Math.random().toString(36).slice(-16);
+      const salt = bcrypt.genSaltSync(10);
+      const hashedPassword = bcrypt.hashSync(randomPassword, salt);
 
       // Create user in Firestore database
       const newUser: IUserCreate = {
         firstName,
         lastName,
         age,
-        email,
+        email: normalizedEmail,
         password: hashedPassword,
         role: "user",
         isActive: true,
