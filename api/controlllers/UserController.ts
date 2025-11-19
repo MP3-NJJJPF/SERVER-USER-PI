@@ -1,4 +1,4 @@
-import UserDAO from "../dao/UserDAO";
+import UserDAO from "../dao/userDAO";
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
