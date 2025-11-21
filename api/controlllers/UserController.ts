@@ -150,7 +150,7 @@ class UserController {
       );
 
       // Successful login
-      res.status(200).json({ message: "Login successful", id: user.uid, email: user.email });
+      res.status(200).json({ message: "Login successful", id: user.uid, email: user.email, name: user.firstName, age: user.age });
     } catch (error: any) {
       // Show detailed error only in development
       if (process.env.NODE_ENV === "development") {
