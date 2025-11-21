@@ -238,7 +238,7 @@ class UserController {
         throw new Error("No se encontró ninguna URL válida en la variable ORIGIN");
       }
       const baseUrl = origins[1] as string; // Use the first valid origin (Change in production for 1)
-      const resetUrl = `${baseUrl}/recover-password?token=${token}&email=${user.email}`;
+      const resetUrl = `${baseUrl}/reset-password?token=${token}&email=${user.email}`;
 
       // 5) Configure the email content
       const msg: sgMail.MailDataRequired = {
