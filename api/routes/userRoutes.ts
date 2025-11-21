@@ -1,5 +1,5 @@
 import express from "express";
-import UserController from "../controlllers/UserController";
+import UserController from "../controllers/UserController";
 //import User from "../models/User";
 import loginLimiter from "../middlewares/limiterMiddleware";
 import authenticateToken from "../middlewares/authMiddleware";
