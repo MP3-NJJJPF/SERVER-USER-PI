@@ -237,7 +237,10 @@ class UserController {
       if (!origins || origins.length === 0) {
         throw new Error("No se encontró ninguna URL válida en la variable ORIGIN");
       }
-      const baseUrl = origins[1] as string; // Use the first valid origin (Change in production for 1)
+      // In development use origins[0] (localhost), in production use the last origin (production URL)
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? origins[origins.length - 1] 
+        : origins[0];
       const resetUrl = `${baseUrl}/reset-password?token=${token}&email=${user.email}`;
 
       // 5) Configure the email content
