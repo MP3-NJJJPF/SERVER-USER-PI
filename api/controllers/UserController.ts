@@ -345,45 +345,49 @@ class UserController {
     }
   }
 
-  /** Edits the information of the currently authenticated user.
-     * Allows updating fields like firstName, lastName, age, and email.
-     * Requires a valid JWT token for authentication.
-     * @param {Object} req - Express request object.
-     * @param {Object} res - Express response object.
-     * @returns {Promise<void>} Sends a response indicating success or an error message.
-     */
-  async editLoggedUser(req: Request, res: Response): Promise<void> {
-    try {
-      const authReq = req as Request & { userId?: string }; // Extend the request type to include userId
-      const userId = authReq.userId;
+    /** Edits the information of the currently authenticated user.
+       * Allows updating fields like firstName, lastName, age, and email.
+       * Requires a valid JWT token for authentication.
+       * @param {Object} req - Express request object.
+       * @param {Object} res - Express response object.
+       * @returns {Promise<void>} Sends a response indicating success or an error message.
+       */
+    async editLoggedUser(req: Request, res: Response): Promise<void> {
+      try {
+        const authReq = req as Request & { userId?: string };
+        const userId = authReq.userId;
 
-      if (!userId) {
-        res.status(401).json({ message: "No token provided" });
-        return;
+        if (!userId) {
+          res.status(401).json({ message: "No token provided" });
+          return;
+        }
+
+        const user = await UserDAO.getById(userId);
+
+        if (!user) {
+          res.status(404).json({ message: "User not found" });
+          return;
+        }
+
+        const allowedFields = ["firstName", "lastName", "age", "email"];
+        const updates = Object.fromEntries(
+          allowedFields
+            .filter(field => req.body[field] !== undefined)
+            .map(field => [field, req.body[field]])
+        );
+
+
+        Object.assign(user, updates);
+        
+
+        // usar el userId del token en vez de user.uid ya que biene como undefined
+        await UserDAO.update(userId, user); 
+
+        res.status(200).json({ message: "User information updated successfully" });
+
+      } catch (error: any) {
+        res.status(500).json({ message: error.message || "Error updating user information" });
       }
-
-      const user = await UserDAO.getById(userId);
-      if (!user) {
-        res.status(404).json({ message: "User not found" });
-        return;
-      }
-
-      const allowedFields = ["firstName", "lastName", "age", "email"];
-      const updates = Object.fromEntries(
-        allowedFields
-          .filter(field => req.body[field] !== undefined)
-          .map(field => [field, req.body[field]])
-      );
-
-      Object.assign(user, updates);
-      await UserDAO.update(user.uid as string, user);
-
-      res.status(200).json({ message: "User information updated successfully" });
-
-    } catch (error: any) {
-      console.error(error);
-      res.status(500).json({ message: "Error getting user information" });
-    }
   }
 
   /**
