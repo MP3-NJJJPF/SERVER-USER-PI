@@ -315,8 +315,10 @@ class UserController {
       user.resetPasswordToken = null;
       user.resetPasswordExpires = null;
 
+
       // Update the user in the database
       await UserDAO.update(user.uid as string, user);
+
 
       res.status(200).json({ message: "Password has been reset successfully" });
 
@@ -518,7 +520,7 @@ class UserController {
       user.password = hashedPassword;
 
       // Update the user in the database
-      await UserDAO.update(user.uid as string, user);
+      await UserDAO.update(userId as string, user);
 
       res.status(200).json({ message: "Contraseña cambiada exitosamente" });
 
