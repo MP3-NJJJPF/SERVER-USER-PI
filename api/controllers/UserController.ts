@@ -419,7 +419,7 @@ class UserController {
     try {
       const authReq = req as Request & { userId?: string }; // Extend the request type to include userId
       const userId = authReq.userId;
-
+      
       if (!userId) {
         res.status(401).json({ message: "No token provided" });
         return;
@@ -438,7 +438,7 @@ class UserController {
       }
 
       //await TaskDAO.deleteByUserId(user._id);
-      await UserDAO.delete(user.uid as string);
+      await UserDAO.delete(userId);
 
       // Define secure type to process.env.JWT_SECRET
       const COOKIE_CONTROL = process.env.COOKIE_CONTROL as string;
