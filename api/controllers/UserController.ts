@@ -556,7 +556,7 @@ class UserController {
 
       res.status(200).json({
         user: {
-          id: user.uid,
+          id: userId,
           firstName: user.firstName,
           lastName: user.lastName,
           age: user.age,
