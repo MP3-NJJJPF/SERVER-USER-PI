@@ -112,6 +112,25 @@ router.delete("/me", authenticateToken, (req, res) => UserController.deleteLogge
  */
 router.patch('/change-password', authenticateToken, (req, res) => UserController.changePassword(req, res));
 
+
+/**
+ * @route PATCH /change-password-goole-github
+ * @description Updates (changes) the authenticated user's password after verifying their identity.
+ * @access Private (requires JWT authentication)
+ * @middleware authenticateToken - Middleware that validates the JWT token and attaches user data to `req.user`.
+ * 
+ * @body {string} currentPassword - The user's current password (required for verification).
+ * @body {string} password - The new password to be set.
+ * @body {string} confirmPassword - Confirmation of the new password (must match `password`).
+ * 
+ * @returns {object} 200 - Password successfully changed.
+ * @returns {object} 400 - Missing or invalid input fields.
+ * @returns {object} 401 - Invalid token or incorrect current password.
+ * @returns {object} 404 - User not found.
+ * @returns {object} 500 - Unexpected server error.
+ */
+router.patch('/change-password-google-github', authenticateToken, (req, res) => UserController.changePasswordGoogleGithub(req, res));
+
 /**
  * @route GET /users/me
  * @description Get the logged-in user's details.
